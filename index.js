@@ -1,4 +1,4 @@
-const { Client, IntentsBitField, GatewayIntentBits, Events, EmbedBuilder} = require('discord.js');
+const { Client, IntentsBitField, PermissionsBitField, GatewayIntentBits, Events, EmbedBuilder} = require('discord.js');
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -24,6 +24,13 @@ const client = new Client({
         IntentsBitField.Flags.MessageContent,
     ],
 });
+const flags = [
+    PermissionsBitField.Flags.ManageRoles,    
+    PermissionsBitField.Flags.ManageNicknames,
+    PermissionsBitField.Flags.ChangeNickname
+];
+const permissions = new PermissionsBitField(flags);
+
 function apiKeyMiddleware(req, res, next) {
     const apiKey = req.headers['x-api-key'];
     if (apiKey && apiKey === API_KEY) {
@@ -98,7 +105,7 @@ app.post('/check-user', async (req, res) => {
         return res.status(400).json({ error: 'Discord ID is required' });
     }
 
-    try {        
+    try {                
         const user = await client.users.fetch(discordID);
         console.log('🟢 User exists.');
         res.json({ exists: user ? true : false });
@@ -144,14 +151,18 @@ app.post('/post/message', async (req, res) => {
     res.send(true);
 });
 
-app.post('/send/embed', async (req, res) => {
+app.post('/register/candidate', async (req, res) => {
+    console.log('🟠 Sending candidate application form'); 
+    const messageJSON = req.body;
+    const guild = await client.guilds.fetch(process.env.FD_DC_ID);
+    const user = await guild.members.fetch(messageJSON.discordId);
+    
+     //console.log("Data: ", messageJSON);
     try {
-        const messageJSON = req.body;
-        const embedMessage = new EmbedBuilder()
-            .setColor(messageJSON.color)
-            .setTitle(messageJSON.title)
-            .setDescription(`<@%${messageJSON.ping.chief}> <@%${messageJSON.ping.commander}> <@%${messageJSON.json.deputy}>`)
-            .addFields(
+        const embedMessage = new EmbedBuilder({
+            color: messageJSON.color,
+            title: messageJSON.title,            
+            fields: [
                 { name: 'TESTOVANIE', value: 'NEREAGOVAT'},
                 { name: 'Vek (OOC)', value: messageJSON.age},
                 { name: 'Discord (OOC)', value: messageJSON.discord},
@@ -162,20 +173,67 @@ app.post('/send/embed', async (req, res) => {
                 { name: 'Dátum narodenia (IC)', value: messageJSON.dob},
                 { name: 'Kontatný email (IC)', value: messageJSON.icMail},
                 { name: 'Národnosť (IC)', value: messageJSON.nationality},
-                { name: 'Bezúhonný (IC)', value: messageJSON.quilty},
+                { name: 'Bezúhonný (IC)', value: messageJSON.guilty},
                 { name: 'Preukazy a licencie (IC)', value: `A: ${messageJSON.licences.A}, B: ${messageJSON.licences.B}, C: ${messageJSON.licences.C}, PPL/H: ${messageJSON.licences.PPL}`},
                 { name: 'Práca u IZS (IC)', value: messageJSON.izs_rp},
                 { name: 'Otázky na záver', value: messageJSON.question}
-            )
-        await sendChannelEmbedMessage(embedMessage, messageJSON.channelId, client);
-        res.send(true);
+            ]
+        });
+        const channel = client.channels.cache.get(messageJSON.channelId);
+        /*await channel.send({
+            embeds: [embedMessage],
+            content: `<@&${messageJSON.ping.chief}> <@&${messageJSON.ping.commander}> <@&${messageJSON.ping.deputy}>`
+        });*/
+        /* await channel.send({
+            embeds: [embedMessage]            
+        }); */
+        console.log('🟢 Form send success.');        
     } catch (error) {
-        
+        console.log("Error " + error);
+        res.status(500).json({ error: 'Problém s odoslaním webhooku' });
     }
-})
+    try {
+        console.log('🟠 Sending DM to candidate');        
+        /* await user.send(`
+:incoming_envelope:  *New Incoming E-Mail*
+:outbox_tray: **from**: academy@lsfd.gov
+:inbox_tray: **to**: ${messageJSON.icMail}
+:open_file_folder:**Predmet**: Prihláška
+
+Dobrý deň p. ${messageJSON.name} ${messageJSON.surname},
+
+ďakujeme za odoslanie prihlášky do Recruitment Academy of Los Santos Fire Deparment.
+Prihlášku evidujeme a o nasledujúcom postupe Vás budeme informovať.
+
+*S pozdravom,*
+*Tím Recuitment Academy LSFD*
+
+:globe_with_meridians:: [Los Santos Fire Department](https://sites.google.com/view/ls-fire-department-/domov)
+:house:: Rocford Hills
+
+**Tento e-mail bol generovaný automaticky, prosím neodpovedajte naň.**`
+          ); */
+          
+          
+        console.log('🟢 DM send success.');  
+    } catch (error) {
+        console.log("Error " + error);
+        res.status(500).json({ error: 'Problém s odoslaním DM správy' });
+    }
+
+    try {
+        const role = guild.roles.cache.get(process.env.ZIADATEL_ROLA);
+        await user.roles.add(role);
+        //await user.setNickname(`${messageJSON.name} ${messageJSON.surname}`);
+    } catch (error) {
+        console.log("Error " + error);
+        res.status(500).json({ error: 'Problém s pridaním role a úpravy profilu serveru' });
+    }
+    res.status(200);
+});
 
 client.login(process.env.TOKEN_LIVE);
 app.listen(port, () => {
     console.log(`🟢 Server running on port: ${port}.`);
-  });
+});
 module.exports = { client };
