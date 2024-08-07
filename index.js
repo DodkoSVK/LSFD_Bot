@@ -194,7 +194,7 @@ app.post('/register/candidate', async (req, res) => {
     }
     try {
         console.log('🟠 Sending DM to candidate');        
-        /* await user.send(`
+        await user.send(`
 :incoming_envelope:  *New Incoming E-Mail*
 :outbox_tray: **from**: academy@lsfd.gov
 :inbox_tray: **to**: ${messageJSON.icMail}
@@ -212,7 +212,7 @@ Prihlášku evidujeme a o nasledujúcom postupe Vás budeme informovať.
 :house:: Rocford Hills
 
 **Tento e-mail bol generovaný automaticky, prosím neodpovedajte naň.**`
-          ); */
+          ); 
           
           
         console.log('🟢 DM send success.');  
@@ -224,7 +224,7 @@ Prihlášku evidujeme a o nasledujúcom postupe Vás budeme informovať.
     try {
         const role = guild.roles.cache.get(process.env.ZIADATEL_ROLA);
         await user.roles.add(role);
-        //await user.setNickname(`${messageJSON.name} ${messageJSON.surname}`);
+        await user.setNickname(`${messageJSON.name} ${messageJSON.surname}`);
     } catch (error) {
         console.log("Error " + error);
         res.status(500).json({ error: 'Problém s pridaním role a úpravy profilu serveru' });
